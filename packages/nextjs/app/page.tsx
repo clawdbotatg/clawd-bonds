@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
 import { formatEther, parseEther } from "viem";
-import { useAccount } from "wagmi";
+import { base } from "viem/chains";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useDeployedContractInfo, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
@@ -110,10 +111,14 @@ const BondCard = ({ bondId }: { bondId: bigint }) => {
 
 const Home: NextPage = () => {
   const { address } = useAccount();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
   const [bondAmount, setBondAmount] = useState("");
   const [selectedTerm, setSelectedTerm] = useState<number>(0);
   const [isApproving, setIsApproving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const wrongNetwork = !!address && chainId !== base.id;
 
   const { data: bondsContract } = useDeployedContractInfo("ClaWDBonds");
   const contractAddr = bondsContract?.address;
@@ -282,6 +287,23 @@ const Home: NextPage = () => {
           <div className="mt-4">
             {notConnected ? (
               <RainbowKitCustomConnectButton />
+            ) : wrongNetwork ? (
+              <button
+                className="btn btn-warning w-full"
+                disabled={isSwitching}
+                onClick={async () => {
+                  setIsSwitching(true);
+                  try {
+                    await switchChain({ chainId: base.id });
+                  } catch {
+                    notification.error("Failed to switch network");
+                  } finally {
+                    setIsSwitching(false);
+                  }
+                }}
+              >
+                {isSwitching ? "Switching..." : "Switch to Base"}
+              </button>
             ) : needsApproval ? (
               <button
                 className="btn btn-primary w-full"
